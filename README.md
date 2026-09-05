@@ -186,16 +186,17 @@ src/lfd_ids/
   module3_ids/               preprocessing, MLP, metrics, alert module
   module4_defense/           k-means, KCD, BOOTKCD/BAGKCD, retrain & deploy
 configs/default.yaml         the reference configuration
-tests/                       107 tests across all four modules
+tests/                       113 tests across all four modules
 docs/ARCHITECTURE.md         module-by-module design
 docs/RESULTS.md              measured results and analysis
 scripts/run_experiments.sh   reproduces every table in RESULTS.md
+scripts/make_report_tables.py renders those tables from a run directory
 ```
 
 ## Tests
 
 ```bash
-pytest -q          # 107 tests, ~20 s
+pytest -q          # 113 tests, ~25 s
 ```
 
 The suite checks the sensor physics (attacked records really do break the gas
