@@ -23,13 +23,16 @@ Measured on a clean held-out test set, averaged over 3 seeds
 
 | | Accuracy | FNR (missed intrusions) | AUC |
 | --- | --- | --- | --- |
-| Clean baseline | **99.5%** | 0.9% | 0.999 |
-| BAGLFA @ 50% poisoning | **51.9%** | 47.8% | 0.545 |
-| BAGLFA @ 50% + BAGKCD | **98.9%** | 2.1% | 0.998 |
+| Clean baseline | **99.45%** | 0.98% | 0.9990 |
+| BAGLFA @ 50% poisoning | **42.6%** | 53.5% | 0.383 |
+| BAGLFA @ 50% + BAGKCD | **98.6%** | 2.8% | 0.9980 |
+| BOOTLFA @ 50% poisoning | **59.8%** | 39.6% | 0.669 |
+| BOOTLFA @ 50% + BOOTKCD | **98.7%** | 2.5% | 0.9961 |
 
-Half the training labels inverted takes the detector down to a coin flip. The
-defence puts it back within half a point of baseline, and cuts missed
-intrusions from roughly one in two to one in fifty.
+Half the training labels inverted takes the detector to the random-guessing
+floor or below — BAGLFA's AUC of 0.383 means the model has learned an actively
+*inverted* ranking. The defence puts it back within a point of baseline and
+cuts missed intrusions by **19×**.
 
 ---
 
@@ -146,12 +149,15 @@ robustness gate before it is published to the fleet.
 Three findings, in order of how much they matter. Numbers and tables in
 [docs/RESULTS.md](docs/RESULTS.md).
 
-**1. At 50% poisoning the IDS collapses.** Accuracy falls from 99.5% to
-~52% (BAGLFA) and ~35% (BOOTLFA), and AUC to near chance. The training labels
-carry no class signal left to learn.
+**1. At 50% poisoning the IDS collapses.** Accuracy falls from 99.45% to 42.6%
+(BAGLFA) and 59.8% (BOOTLFA); AUC falls to 0.383 and 0.669. The training labels
+carry no class signal left to learn. These cells are also by far the most
+unstable in the grid (±15 and ±13 points across three seeds) — at exactly 50%
+inversion the model latches onto whatever accidental structure the poisoned
+labels happen to hold that run.
 
 **2. Below 50%, uniform random flipping is far less damaging than it looks.**
-At `p = 30%` the attacked model still scores ~96–98%. This is not a bug — it
+At `p = 30%` the attacked model still scores 98.3–98.8%. This is not a bug — it
 is the well-known robustness of a classifier to *symmetric* label noise: while
 fewer than half the labels flip, the majority label in each region of feature
 space is still the correct one, so the decision boundary survives. The damage
@@ -167,9 +173,10 @@ directed attacker needs a little over half the budget.**
 only samples within the mean distance `μ` of their centroid — about 53% of
 the data — so a single pass can never repair more than ~55% of the flips.
 Keeping the rest with their poisoned labels leaves 14–22% residual label error
-and recovers only to ~83–87% at `p = 50%`. Dropping them from the retraining
-set instead (`outer_policy: drop`, the default) restores **98.8–99.0% at every
-intensity**, for both attacks and under directed flipping too.
+and recovers only to ~83% at `p = 50%`. Dropping them from the retraining set
+instead (`outer_policy: drop`, the default) restores **98.5–99.0% at every
+intensity**, for both attacks. Running the defence on a *clean* training set
+costs only 0.59 points, so it can be left permanently enabled.
 
 ---
 
