@@ -101,6 +101,25 @@ def test_auto_falls_back_to_anchors_on_a_tied_vote():
     assert diag["n_trusted"] == 2
 
 
+def test_cluster_with_no_anchors_falls_back_to_its_majority_vote():
+    """An anchor-free cluster carries no evidence, not evidence of 'benign'.
+
+    Defaulting it to 0 would let KCD relabel an entire malicious cluster as
+    benign, which is the worst failure the defence could have.
+    """
+    clusters = np.array([0, 0, 0, 1, 1, 1])
+    y_poisoned = np.array([0, 0, 0, 1, 1, 1])
+    # Every anchor sits in cluster 0, so cluster 1 is never voted on.
+    trusted_idx = np.array([0, 1])
+    trusted_y = np.array([0, 0])
+    mapping, method, diag = assign_cluster_classes(
+        clusters, y_poisoned, 2, "anchor", 0.1, trusted_idx, trusted_y
+    )
+    assert diag["anchor_uncovered_clusters"] == [1]
+    assert method == "anchor_partial"
+    assert mapping == {0: 0, 1: 1}   # cluster 1 recovered from its own majority
+
+
 def test_anchor_without_a_trusted_set_is_an_error():
     with pytest.raises(ValueError, match="requires a trusted subset"):
         assign_cluster_classes(np.array([0, 1]), np.array([0, 1]), 2, "anchor", 0.1)

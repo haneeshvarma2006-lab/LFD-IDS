@@ -115,22 +115,29 @@ def assign_cluster_classes(
     cluster_labels = np.asarray(cluster_labels, dtype=int)
     y_poisoned = np.asarray(y_poisoned, dtype=int)
 
-    def vote(labels: np.ndarray, values: np.ndarray) -> tuple[dict[int, int], np.ndarray]:
+    def vote(
+        labels: np.ndarray, values: np.ndarray
+    ) -> tuple[dict[int, int], np.ndarray, np.ndarray]:
+        """Majority label per cluster, its margin, and which clusters had voters."""
         mapping: dict[int, int] = {}
         margins = np.zeros(n_clusters, dtype=float)
+        covered = np.zeros(n_clusters, dtype=bool)
         for k in range(n_clusters):
             members = values[labels == k]
             if members.size == 0:
+                # No voters: leave this cluster undetermined rather than
+                # silently defaulting it to benign, which would hand the
+                # defence licence to relabel a whole malicious cluster.
                 mapping[k] = 0
-                margins[k] = 0.0
                 continue
+            covered[k] = True
             share = float(members.mean())
             mapping[k] = int(share >= 0.5)
             # 0.0 at a perfect 50/50 tie, 1.0 when unanimous.
             margins[k] = abs(2.0 * share - 1.0)
-        return mapping, margins
+        return mapping, margins, covered
 
-    majority_map, margins = vote(cluster_labels, y_poisoned)
+    majority_map, margins, _ = vote(cluster_labels, y_poisoned)
     degenerate = len(set(majority_map.values())) < min(n_clusters, 2)
     diagnostics = {
         "majority_margins": [float(m) for m in margins],
@@ -152,13 +159,19 @@ def assign_cluster_classes(
         diagnostics["anchor_unavailable"] = True
         return majority_map, "majority_fallback", diagnostics
 
-    anchor_map, anchor_margins = vote(
+    anchor_map, anchor_margins, anchor_covered = vote(
         cluster_labels[np.asarray(trusted_index, dtype=int)],
         np.asarray(trusted_y, dtype=int),
     )
+    # A cluster the anchor set never reached falls back to its majority vote;
+    # an anchor-free cluster carries no evidence, not evidence of "benign".
+    uncovered = [int(k) for k in range(n_clusters) if not anchor_covered[k]]
+    for k in uncovered:
+        anchor_map[k] = majority_map[k]
     diagnostics["anchor_margins"] = [float(m) for m in anchor_margins]
+    diagnostics["anchor_uncovered_clusters"] = uncovered
     diagnostics["n_trusted"] = int(len(trusted_index))
-    return anchor_map, "anchor", diagnostics
+    return anchor_map, "anchor" if not uncovered else "anchor_partial", diagnostics
 
 
 class KMeansClusteringDefence:
