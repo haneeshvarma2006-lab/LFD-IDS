@@ -14,6 +14,10 @@ pipeline, two label-flipping attacks (**BOOTLFA** and **BAGLFA**), the deep
 learning IDS they target, and the **K-means Clustering Defence (KCD)** that
 repairs the poisoned labels and restores the detector.
 
+> **New here? Read [docs/GUIDE.md](docs/GUIDE.md) first** — a plain-language
+> walkthrough of what the project does, how to run it, and how to read the
+> output. This README assumes more background.
+
 ---
 
 ## Headline result
@@ -204,6 +208,7 @@ src/lfd_ids/
   module4_defense/           k-means, KCD, BOOTKCD/BAGKCD, retrain & deploy
 configs/default.yaml         the reference configuration
 tests/                       113 tests across all four modules
+docs/GUIDE.md                plain-language walkthrough (start here)
 docs/ARCHITECTURE.md         module-by-module design
 docs/RESULTS.md              measured results and analysis
 scripts/run_experiments.sh   reproduces every table in RESULTS.md
