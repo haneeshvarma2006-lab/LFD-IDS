@@ -1,0 +1,13 @@
+# Core runtime -- everything the default (NumPy backend) pipeline needs.
+numpy>=1.24
+pandas>=2.0
+matplotlib>=3.7
+PyYAML>=6.0
+
+# Tests (cross-check the project's k-means and AUC against a reference).
+pytest>=7.4
+scikit-learn>=1.3
+
+# Optional: the Keras/TensorFlow backend. Uncomment to enable
+# `--backend keras`; the NumPy backend is the default and needs none of it.
+# tensorflow-cpu>=2.16

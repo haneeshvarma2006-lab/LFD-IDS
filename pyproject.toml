@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lfd-ids"
+version = "1.0.0"
+description = "Label-flipping data poisoning attacks and a K-means clustering defence for connected-vehicle intrusion detection"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "matplotlib>=3.7",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+# The TensorFlow backend is optional: the NumPy backend is the default and is
+# faster at this model size.
+keras = ["tensorflow-cpu>=2.16"]
+# scikit-learn is used only by the tests, which cross-check the project's own
+# k-means and AUC implementations against it.
+dev = ["pytest>=7.4", "scikit-learn>=1.3"]
+
+[project.scripts]
+lfd-ids = "lfd_ids.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
