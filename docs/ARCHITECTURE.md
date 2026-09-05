@@ -159,6 +159,16 @@ subset the defender holds back, modelling records collected under attestation.
 back to `anchor` otherwise; the rule that actually fired is reported as
 `assignment_method`.
 
+A cluster the anchor set never reached is a special case worth naming. It
+carries *no* evidence — which is not the same as evidence of "benign" — so it
+falls back to its own majority vote rather than being defaulted to class 0.
+Defaulting it would be the worst failure the defence has: it would declare a
+whole malicious cluster benign and then relabel its core to match. When this
+happens the affected clusters are listed in `anchor_uncovered_clusters` and
+the method is reported as `anchor_partial`. It does not arise at the default
+5% anchor fraction, where each cluster collects hundreds of anchors, but it is
+reachable inside BOOTKCD and BAGKCD, whose per-resample passes see far fewer.
+
 **The outer shell.** Samples beyond `μ` keep whatever label the adversary left
 on them, and `defence.outer_policy` decides what happens to them: `drop`
 (default) removes them from `D″`, `keep` reproduces the literal relabel-only
