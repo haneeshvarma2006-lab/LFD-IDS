@@ -146,7 +146,7 @@ robustness gate before it is published to the fleet.
 
 ## What the experiments show
 
-Three findings, in order of how much they matter. Numbers and tables in
+Four findings, in order of how much they matter. Numbers and tables in
 [docs/RESULTS.md](docs/RESULTS.md).
 
 **1. At 50% poisoning the IDS collapses.** Accuracy falls from 99.45% to 42.6%
@@ -165,18 +165,28 @@ at 30–40% comes almost entirely from the model memorising noise late in
 training, not from the boundary moving.
 
 That robustness disappears the moment the adversary aims its flips. With
-`attack.selection=malicious_to_benign`, accuracy collapses to ~53% at
-`p = 30%` — the same damage the random attack needs 50% to achieve. **A
-directed attacker needs a little over half the budget.**
+`attack.selection=malicious_to_benign`, accuracy collapses to **50.6% at
+`p = 30%`** — the random-guessing floor, which the uniform attack needs 50% to
+reach — and it does so with almost no variance (±0.003 vs ±0.15). **A directed
+attacker needs a little over half the budget, and gets there reliably.**
 
 **3. The defence works, but only with the outer shell removed.** KCD relabels
-only samples within the mean distance `μ` of their centroid — about 53% of
-the data — so a single pass can never repair more than ~55% of the flips.
-Keeping the rest with their poisoned labels leaves 14–22% residual label error
-and recovers only to ~83% at `p = 50%`. Dropping them from the retraining set
-instead (`outer_policy: drop`, the default) restores **98.5–99.0% at every
-intensity**, for both attacks. Running the defence on a *clean* training set
-costs only 0.59 points, so it can be left permanently enabled.
+only samples within the mean distance `μ` of their centroid — 56.3% of the
+data — so a single pass repairs a structurally capped ~58% of the flips.
+Keeping the rest with their poisoned labels leaves 13–21% residual label error
+and recovers only 85.1–88.8% at `p = 50%`. Dropping them from the retraining
+set instead (`outer_policy: drop`, the default) restores **98.5–99.0% at every
+intensity**, for both attacks and under directed flipping too. Running the
+defence on a *clean* training set costs 0.82–0.88 points, so it can be left
+permanently enabled.
+
+**4. Without a small trusted anchor set, the defence inverts.** At `p = 50%`
+the majority vote inside each cluster is an exact coin flip (margins under
+1.4%). With anchors disabled, three of six runs land on a degenerate mapping
+and one lands on a fully *inverted* one — driving the detector to **4.5%
+accuracy, worse than the attack it was repairing**. The 5% anchor set is what
+makes KCD work at maximum poisoning, and it is the assumption most worth
+scrutinising.
 
 ---
 

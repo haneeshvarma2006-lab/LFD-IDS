@@ -90,11 +90,12 @@ that is not the reassurance it looks like.
 
 KCD corrects a **strikingly consistent ~58% of the adversary's flips**,
 regardless of attack or intensity. That number is not a coincidence — it is
-structural. KCD only rewrites labels of samples lying within the mean distance
-`μ` of their cluster centroid, and for a roughly Gaussian cluster in 4-D that
-is about 53–58% of the mass. **The published relabelling rule therefore has a
-hard ceiling: it can never repair more than about three-fifths of the damage**,
-no matter how good the clustering is.
+structural. KCD only rewrites labels of samples lying within the mean distance `μ` of
+their cluster centroid, and that shell holds a measured **56.3%** of the
+training set — close to the ~54% a Gaussian cluster in 4-D would give.
+**The published relabelling rule therefore has a hard ceiling: it can never
+repair more than about three-fifths of the damage**, no matter how good the
+clustering is. The 58% correction rate is that ceiling, not a tuning outcome.
 
 The residual label error after the defence is 13% (p = 30%), 17% (p = 40%) and
 21% (p = 50%). The defence also *introduces* a few errors of its own — 29 to 43
@@ -111,7 +112,7 @@ default `outer_policy: drop` removes from the retraining set entirely. Section
 40% the majority vote inside each cluster is still decisive, so `majority`
 fires; at 50% the vote is a coin flip and the defence falls back to the trusted
 `anchor` set. Without that fallback the defence is unreliable at exactly 50% —
-Section 4 quantifies it.
+Section 5 quantifies just how unreliable.
 
 ![label recovery](../results/figures/label_recovery.png)
 
@@ -133,23 +134,37 @@ boundary shifting.
 
 **That robustness evaporates the moment the adversary aims.** Restricting the
 same flip budget to one direction (`attack.selection=malicious_to_benign`)
-makes the noise *asymmetric*, which does move the boundary:
+makes the noise *asymmetric*, which does move the boundary. Full 3-seed run at
+the default scale (`results/ablation_directed_m2b/`), attacked accuracy:
 
-| Selection | p = 30% | p = 40% | p = 50% |
+| Selection | Attack | p = 30% | p = 40% | p = 50% |
+| --- | --- | --- | --- | --- |
+| `random` (uniform) | BAGLFA | 0.9832 ± 0.0030 | 0.9780 ± 0.0038 | 0.4259 ± 0.1463 |
+| `random` (uniform) | BOOTLFA | 0.9878 ± 0.0026 | 0.9790 ± 0.0020 | 0.5979 ± 0.1262 |
+| `malicious_to_benign` | BAGLFA | **0.5060 ± 0.0025** | **0.5010 ± 0.0007** | **0.5000 ± 0.0003** |
+| `malicious_to_benign` | BOOTLFA | **0.5106 ± 0.0082** | **0.5023 ± 0.0024** | **0.5000 ± 0.0003** |
+
+A directed attacker puts the IDS on the random-guessing floor at **p = 30%** —
+the damage uniform flipping needs 50% to achieve — and it gets there with
+almost no seed-to-seed variance (±0.003 against the random attack's ±0.15).
+The directed attack is not just stronger, it is *reliable*: it removes the
+class signal deterministically rather than hoping the noise lands badly.
+
+**The practical takeaway is that poisoning intensity alone is a poor threat
+measure.** At p = 30% an operator watching accuracy would see a healthy 98.3%
+detector under the random attack and a coin flip under the directed one, from
+an adversary spending exactly the same budget.
+
+The defence handles the directed attack just as well, at every intensity:
+
+| Defence | p = 30% | p = 40% | p = 50% |
 | --- | --- | --- | --- |
-| `random` (uniform) | 0.9689 | 0.9512 | 0.3045 |
-| `malicious_to_benign` (directed) | **0.5265** | **0.5055** | **0.5004** |
-| `benign_to_malicious` (directed) | **0.4996** | — | — |
+| BAGKCD | 0.9857 ± 0.0011 | 0.9859 ± 0.0016 | 0.9861 ± 0.0012 |
+| BOOTKCD | 0.9848 ± 0.0004 | 0.9855 ± 0.0014 | 0.9854 ± 0.0006 |
 
-*(single seed, 20 vehicles × 300 samples; see `results/ablation_directed_m2b/`
-for the full 3-seed run at the default scale)*
-
-A directed attacker reaches the random-guessing floor at **p = 30%** — the same
-damage uniform flipping needs 50% for. **The practical takeaway is that
-poisoning intensity alone is a poor threat measure.** An adversary who knows
-which class to target needs a little over half the budget, and at 30% poisoning
-an operator watching only accuracy would see a healthy-looking detector under
-the random attack and a destroyed one under the directed attack.
+This makes sense given how KCD works: it never looks at the labels to decide
+*where* the classes are, only at the feature geometry. Which labels the
+adversary chose to flip is therefore largely irrelevant to it.
 
 ---
 
@@ -157,37 +172,86 @@ the random attack and a destroyed one under the directed attack.
 
 KCD relabels only inside the mean-distance shell, which leaves the outer shell
 holding whatever labels the adversary left. `defence.outer_policy` decides what
-happens to those samples, and it dominates the defence's effectiveness:
+happens to those samples, and it is the single most consequential
+implementation decision in the project. Defended accuracy, 3 seeds at full
+scale:
 
-| `outer_policy` | p = 30% | p = 40% | p = 50% | Training rows kept |
+| `outer_policy` | Attack | p = 30% | p = 40% | p = 50% |
 | --- | --- | --- | --- | --- |
-| `keep` (literal relabel-only rule) | 0.9672 | 0.9579 | **0.8343** | 3,566 |
-| `downweight` (weight 0.25) | 0.9773 | 0.9638 | 0.9142 | 3,566 |
-| `drop` (default) | 0.9882 | 0.9899 | **0.9882** | 1,983 |
+| `keep` (literal relabel-only rule) | BAGLFA | 0.9809 ± 0.0007 | 0.9714 ± 0.0031 | **0.8512 ± 0.0304** |
+| `keep` | BOOTLFA | 0.9852 ± 0.0040 | 0.9633 ± 0.0094 | **0.8882 ± 0.0305** |
+| `downweight` (weight 0.25) | BAGLFA | 0.9881 ± 0.0010 | 0.9737 ± 0.0050 | 0.9164 ± 0.0018 |
+| `downweight` | BOOTLFA | 0.9874 ± 0.0007 | 0.9763 ± 0.0045 | 0.9653 ± 0.0091 |
+| **`drop` (default)** | BAGLFA | 0.9864 ± 0.0016 | 0.9853 ± 0.0009 | **0.9855 ± 0.0016** |
+| **`drop`** | BOOTLFA | 0.9903 ± 0.0021 | 0.9863 ± 0.0021 | **0.9870 ± 0.0015** |
 
-*(BOOTLFA, single seed at reduced scale; the 3-seed runs at full scale are in
-`results/ablation_outer_keep/` and `results/ablation_outer_downweight/`)*
-
+The ordering is monotonic and the gap widens with the poisoning intensity.
 **Reading the published rule literally — relabel the core, keep the rest —
-recovers only 83% at p = 50%.** Dropping the untrusted outer shell instead
-restores 98.8%, and does so uniformly across intensities. The reasoning is
-simple: KCD has no basis for trusting those labels, so treating them as ground
-truth is worse than treating them as unusable. Dropping them costs 44% of the
-training rows and is still the better trade by 15 points.
+recovers only 85.1% and 88.8% at p = 50%**, against 98.6% and 98.7% for
+`drop`: a 10 to 13 point difference. `drop` is also an order of magnitude more
+stable across seeds (±0.002 against ±0.030).
 
-This is the single most consequential implementation decision in the project,
-and it is why `drop` is the default. `keep` remains available as an ablation.
+The reasoning is straightforward. KCD has no basis for trusting the labels
+beyond `μ` — that is precisely why it declined to rewrite them. Feeding them to
+the retrainer as if they were ground truth is worse than treating them as
+unusable. Dropping them costs 4,926 of 11,869 training rows (the defence keeps
+6,943, the 56.3% lying within `μ`) and is still the better trade by a wide
+margin. `downweight` sits where you would expect, between the two.
 
 **What the defence costs when there is no attack.** Running KCD on a completely
-clean training set (`attack.intensities=0.0`) gives 98.65% against a 99.24%
-baseline — a **0.59-point cost, with no change in false-negative rate**. That
-is cheap enough that the defence can be left permanently enabled rather than
-switched on once poisoning is suspected, which matters because in practice you
-do not know when you are being poisoned.
+clean training set (`attack.intensities=0.0`, `results/ablation_no_attack/`)
+gives 98.57% (BAGKCD) and 98.64% (BOOTKCD) against the 99.45% baseline — a cost
+of **0.82 to 0.88 accuracy points**, with the false-negative rate rising from
+0.98% to 2.7–2.9%. That is a real but small price, and it is cheap enough that
+the defence can be left permanently enabled rather than switched on when
+poisoning is suspected — which matters, because in practice you do not know
+when you are being poisoned.
 
 ---
 
-## 5. The ensemble aggregator makes things worse under heavy poisoning
+## 5. Without a trusted anchor set, the defence is a coin flip at p = 50%
+
+Cluster-to-class assignment is where KCD is most fragile. The default `auto`
+rule uses the majority vote of the poisoned labels inside each cluster while
+that vote is decisive, and falls back to a small trusted anchor set when it is
+not. Forcing majority-vote-only with no anchors at all
+(`defence.label_assignment=majority`, `defence.trusted_fraction=0.0`,
+`results/ablation_majority_only/`) shows why the fallback exists:
+
+| Defence | p = 30% | p = 40% | p = 50% |
+| --- | --- | --- | --- |
+| BAGKCD, majority only | 0.9694 ± 0.0024 | 0.9710 ± 0.0018 | **0.4923 ± 0.3623** |
+| BOOTKCD, majority only | 0.9528 ± 0.0151 | 0.9590 ± 0.0078 | **0.5040 ± 0.3750** |
+| *(default, with anchors)* | *0.986–0.990* | *0.985–0.986* | *0.986–0.987* |
+
+A ±0.36 standard deviation is not a noisy average — it is a **trimodal
+outcome**. The per-seed results at p = 50%:
+
+| Seed | Attack | Cluster mapping | Vote margin | Accuracy |
+| --- | --- | --- | --- | --- |
+| 44 | BOOTLFA | `{0→0, 1→1}` correct | 0.0085 / 0.0004 | 0.9654 |
+| 42 | BAGLFA | `{0→0, 1→0}` degenerate | 0.0025 / 0.0005 | 0.9320 |
+| 43 | BOOTLFA | `{0→0, 1→0}` degenerate | 0.0123 / 0.0091 | 0.4999 |
+| 43 | BAGLFA | `{0→1, 1→1}` degenerate | 0.0132 / 0.0102 | 0.5001 |
+| 42 | BOOTLFA | `{0→1, 1→1}` degenerate | 0.0016 / 0.0005 | 0.0468 |
+| 44 | BAGLFA | `{0→1, 1→0}` **inverted** | 0.0104 / 0.0040 | **0.0447** |
+
+Every vote margin is under 1.4% — these are exact coin flips, as expected when
+half the labels in every cluster have been inverted. In four of six runs the
+vote is *degenerate*, mapping both clusters to the same class; in one it is
+cleanly **inverted**, and the defence relabels the core backwards, driving the
+detector to 4.5% accuracy with a 91% false-negative rate.
+
+**That is worse than the attack it was meant to repair** (42.6%). A defence
+that can invert the detector is not a partial defence — under this
+configuration it is a second attack. The 5% trusted anchor set is what
+converts KCD from a coin flip into the 98.6% result in Section 1, and it is
+the assumption most worth scrutinising before trusting this method in
+practice.
+
+---
+
+## 6. The ensemble aggregator makes things worse under heavy poisoning
 
 Both attacks also train the per-subset models `M₁..M_B` and their aggregator,
 as the architecture specifies:
@@ -216,7 +280,7 @@ not a defence against label poisoning; under heavy poisoning it is a liability.
 
 ---
 
-## 6. Detection by attack type
+## 7. Detection by attack type
 
 Per-attack-type recall on the clean baseline, from
 `results/experiment_report.json` (`extras.per_attack_recall`):
@@ -246,7 +310,7 @@ physically-consistent forgery rather than the rail-slamming ones.**
 
 ---
 
-## 7. Limitations
+## 8. Limitations
 
 - **The dataset is simulated.** No public connected-vehicle capture with this
   exact feature set was available, so Module 1 generates one from a physical
@@ -262,8 +326,9 @@ physically-consistent forgery rather than the rail-slamming ones.**
   (the attack targets training data). The defender is assumed to hold a clean
   holdout for model selection and a 5% trusted anchor set for cluster-to-class
   assignment. The anchor set is what makes the defence work at exactly
-  p = 50%; `results/ablation_majority_only/` shows the majority-vote-only
-  behaviour without it.
+  p = 50% (Section 5), and it is the assumption most worth scrutinising: an
+  operator who cannot obtain even a small attested sample cannot rely on this
+  defence at high poisoning intensity.
 - **Three seeds is few** for the p = 50% cells, where the standard deviation
   reaches ±15 points. The direction of the effect is unambiguous; the exact
   value is not.
