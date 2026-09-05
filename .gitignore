@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- LFD-IDS ---------------------------------------------------------------
+# The generated cloud database is a build artefact, not a result.
+results/cloud_db.sqlite
+*.sqlite
