@@ -16,7 +16,6 @@ from lfd_ids.module3_ids import (
     keras_available,
     label_recovery_metrics,
     per_attack_recall,
-    preprocess,
     roc_auc,
     stratified_split,
 )
@@ -118,7 +117,6 @@ def test_numpy_mlp_is_deterministic_under_a_seed():
 
 
 def test_sample_weights_shift_the_decision():
-    rng = np.random.default_rng(2)
     X = np.linspace(-2, 2, 400).reshape(-1, 1)
     y = (X.ravel() > 0).astype(int)
     y_noisy = y.copy()
@@ -144,6 +142,21 @@ def test_backend_resolution_and_build(small_config):
 def test_keras_backend_matches_the_numpy_parameter_count():
     cfg = ModelConfig(epochs=1, backend="keras")
     assert build_model(cfg, 4, 0).n_parameters() == NumpyMLP(4, ModelConfig()).n_parameters()
+
+
+@pytest.mark.skipif(not keras_available(), reason="TensorFlow not installed")
+def test_keras_backend_satisfies_the_classifier_contract():
+    """Both backends must be drop-in interchangeable for the pipeline."""
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(200, 4))
+    y = (X[:, 0] > 0).astype(int)
+    cfg = ModelConfig(epochs=3, backend="keras")
+    model = build_model(cfg, 4, 0).fit(X[:160], y[:160], X[160:], y[160:])
+    proba = model.predict_proba(X[160:])
+    assert proba.shape == (40,)
+    assert np.all((proba >= 0.0) & (proba <= 1.0))
+    assert set(np.unique(model.predict(X[160:]))) <= {0, 1}
+    assert model.history  # Keras training history was captured
 
 
 # ------------------------------------------------------------------ metrics
